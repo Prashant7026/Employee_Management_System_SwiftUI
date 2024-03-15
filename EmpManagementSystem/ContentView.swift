@@ -9,77 +9,71 @@ import SwiftUI
 import CoreData
 
 struct ContentView: View {
-    @Environment(\.managedObjectContext) private var viewContext
-
-    @FetchRequest(
-        sortDescriptors: [NSSortDescriptor(keyPath: \Item.timestamp, ascending: true)],
-        animation: .default)
-    private var items: FetchedResults<Item>
-
+    
+    @StateObject private var employeeManager = EmployeeManager()
+    @State private var Add_View_Edit_Mode: Add_View_Edit = .add
+    @State private var isEditing = false
+    @State private var selectedEmployee: Employee?
+    
     var body: some View {
         NavigationView {
-            List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        Text("Item at \(item.timestamp!, formatter: itemFormatter)")
-                    } label: {
-                        Text(item.timestamp!, formatter: itemFormatter)
+            VStack {
+                List(employeeManager.allEmployeesList, id: \.self) { user in
+                    HStack {
+                        Image(systemName: "person.crop.circle")
+                            .resizable()
+                            .frame(width: 50.0, height: 50.0)
+                        VStack(alignment: .leading) {
+                            Text(user.name)
+                                .font(.headline)
+                            Text(user.designation)
+                        }
+                        Spacer()
+                        Button {
+                            // Handle edit action for this specific user
+                            // For example:
+                            selectedEmployee = user
+                            isEditing = true
+                            Add_View_Edit_Mode = .edit
+                        } label:{
+                            Image(systemName: "pencil.circle")
+                                .resizable()
+                                .frame(width: 25.0, height: 25.0)
+                        }
+                        Button {
+                            selectedEmployee = user
+                            isEditing = true
+                            Add_View_Edit_Mode = .viewDetails
+                        } label: {
+                            Image(systemName: "info.circle")
+                                .resizable()
+                                .frame(width: 25.0, height: 25.0)
+                        }
+                    }
+                    
+                }
+                .sheet(isPresented: $isEditing, onDismiss: {
+                    // Reset selectedEmployee and isEditing when the sheet is dismissed
+                    selectedEmployee = nil
+                    isEditing = false
+                }) {
+                    // Present the AddEmployee view with the appropriate mode
+                    AddEmployee(employee_Mode: Add_View_Edit_Mode, selected_employee: selectedEmployee)
+                }
+                .buttonStyle(PlainButtonStyle())
+                .padding(.bottom)
+                .navigationTitle("People")
+                
+                .toolbar {
+                    NavigationLink(destination: AddEmployee(employee_Mode: .add)) {
+                        Image(systemName: "plus")
                     }
                 }
-                .onDelete(perform: deleteItems)
-            }
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
-                }
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
-                    }
-                }
-            }
-            Text("Select an item")
-        }
-    }
-
-    private func addItem() {
-        withAnimation {
-            let newItem = Item(context: viewContext)
-            newItem.timestamp = Date()
-
-            do {
-                try viewContext.save()
-            } catch {
-                // Replace this implementation with code to handle the error appropriately.
-                // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
-                let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
             }
         }
-    }
-
-    private func deleteItems(offsets: IndexSet) {
-        withAnimation {
-            offsets.map { items[$0] }.forEach(viewContext.delete)
-
-            do {
-                try viewContext.save()
-            } catch {
-                // Replace this implementation with code to handle the error appropriately.
-                // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
-                let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
-            }
-        }
+        .environmentObject(employeeManager)
     }
 }
-
-private let itemFormatter: DateFormatter = {
-    let formatter = DateFormatter()
-    formatter.dateStyle = .short
-    formatter.timeStyle = .medium
-    return formatter
-}()
 
 #Preview {
     ContentView().environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
